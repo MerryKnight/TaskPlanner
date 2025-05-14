@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">TaskPlanner</string>
+    <string name="login">Войти</string>
+    <string name="register">Зарегистрироваться</string>
+    <string name="no_account">Нет аккаунта</string>
+    <string name="email">Эл. почта</string>
+    <string name="password">Пароль</string>
+    <string name="navigation_drawer_open">Открыть меню</string>
+    <string name="navigation_drawer_close">Закрыть меню</string>
+</resources>
