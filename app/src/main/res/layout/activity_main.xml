@@ -19,7 +19,6 @@
             app:titleTextAppearance="@style/Toolbar.TitleText"
             android:navigationIcon="@android:drawable/ic_menu_sort_by_size"
             android:theme="@style/Theme.Material3.Light.NoActionBar"
-
             android:title="Мои задачи" />
 
         <!-- RecyclerView -->
