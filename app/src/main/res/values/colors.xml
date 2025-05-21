@@ -17,6 +17,9 @@
     <color name="color_on_primary">#FFFFFF</color> <!-- Текст на фоне primary -->
     <color name="color_on_background">#000000</color> <!-- Текст на фоне background -->
 
+    <color name="color_background_dark">#121212</color>
+    <color name="color_on_background_dark">#FFFFFF</color>
+    <color name="color_on_primary_dark">#CCCCCC</color>
 
 
 </resources>

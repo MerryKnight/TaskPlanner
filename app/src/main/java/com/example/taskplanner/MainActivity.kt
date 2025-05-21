@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private var tasks: List<Task> = emptyList() // Список задач (пока статический)
     private lateinit var drawerLayout: DrawerLayout
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeUtils.applySavedTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 

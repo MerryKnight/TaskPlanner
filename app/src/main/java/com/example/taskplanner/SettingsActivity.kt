@@ -1,5 +1,6 @@
 package com.example.taskplanner
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Paint
 import android.os.Bundle
@@ -18,6 +19,10 @@ class SettingsActivity : AppCompatActivity() {
         val switchTheme = findViewById<Switch>(R.id.switch_theme)
         val btnLogout = findViewById<TextView>(R.id.tv_logout)
 
+        val prefs = getSharedPreferences("theme_prefs", Context.MODE_PRIVATE)
+        val isDarkMode = prefs.getBoolean("is_dark_mode", false)
+        switchTheme.isChecked = isDarkMode
+
         val logoutTextView = findViewById<TextView>(R.id.tv_logout)
         logoutTextView.paintFlags = logoutTextView.paintFlags or Paint.UNDERLINE_TEXT_FLAG
 
@@ -28,7 +33,7 @@ class SettingsActivity : AppCompatActivity() {
         supportActionBar?.title = "Настройки"
         // Пока без логики, просто заглушка
         switchTheme.setOnCheckedChangeListener { _, isChecked ->
-            // TODO: Реализация темы
+            ThemeUtils.toggleTheme(this, isChecked)
         }
 
         btnLogout.setOnClickListener {
