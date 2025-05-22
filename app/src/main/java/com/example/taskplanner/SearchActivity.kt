@@ -11,6 +11,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
@@ -20,6 +21,7 @@ import androidx.core.graphics.drawable.DrawableCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -34,6 +36,11 @@ class SearchActivity : AppCompatActivity() {
     private var lastQuery: String = ""
     private var tasks: List<Task> = emptyList()
     private lateinit var adapter: TaskAdapter
+    private lateinit var historyRecyclerView: RecyclerView
+    private lateinit var historyAdapter: SearchHistoryAdapter
+    private lateinit var historyManager: SearchHistoryManager
+    private var searchJob: kotlinx.coroutines.Job? = null
+    private lateinit var progressBar: ProgressBar
 
     companion object {
         private const val SEARCH_QUERY_KEY = "search_query"
@@ -55,6 +62,7 @@ class SearchActivity : AppCompatActivity() {
         placeholderEmpty = findViewById(R.id.placeholder_empty)
         placeholderError = findViewById(R.id.placeholder_error)
         btnRetry = findViewById(R.id.btn_retry)
+        progressBar = findViewById(R.id.progress_bar)
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
@@ -63,34 +71,74 @@ class SearchActivity : AppCompatActivity() {
         supportActionBar?.title = "Поиск"
         val editTextId = searchView.context.resources.getIdentifier("android:id/search_src_text", null, null)
         val editText = searchView.findViewById<EditText>(editTextId)
+        historyManager = SearchHistoryManager(this)
 
 
         // Восстановление текста запроса
         val savedQuery = savedInstanceState?.getString(SEARCH_QUERY_KEY) ?: ""
         searchView.setQuery(savedQuery, false)
 
+        historyRecyclerView = findViewById(R.id.rv_search_history)
+        historyAdapter = SearchHistoryAdapter(emptyList()) { query ->
+            searchView.setQuery(query, true) // выполняет поиск
+        }
+        historyRecyclerView.layoutManager = LinearLayoutManager(this)
+        historyRecyclerView.adapter = historyAdapter
 
         // Обрабатываем нажатие на стрелку назад
         toolbar.setNavigationOnClickListener {
             onBackPressedDispatcher.onBackPressed()
         }
+        editText?.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && searchView.query.isEmpty()) {
+                showHistory()
+            } else {
+                hideHistory()
+            }
+        }
 
+        if (searchView.query.isEmpty()) {
+            showHistory()
+        }
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
-                loadTasks(query.orEmpty())
+                val safeQuery = query.orEmpty()
+                if (safeQuery.isNotBlank()) {
+                    historyManager.saveQuery(safeQuery)
+                    hideHistory()
+                    loadTasks(safeQuery)
+                }
+
                 return true
             }
-
             override fun onQueryTextChange(newText: String?): Boolean {
                 toggleClearButton(newText ?: "")
+                val query = newText.orEmpty()
                 val closeButtonId = searchView.context.resources.getIdentifier("android:id/search_close_btn", null, null)
                 val closeButton = searchView.findViewById<View>(closeButtonId)
                 closeButton?.visibility = View.GONE
+                searchJob?.cancel() // отменить предыдущую задачу
+                searchJob = lifecycleScope.launch {
+                    delay(2000) // 2 секунды
+                    if (query.isNotBlank()) {
+                        historyManager.saveQuery(query)
+                        hideHistory()
+                        loadTasks(query)
+                    }
+                }
                 return true
             }
 
-        })
 
+        })
+        if (searchView.query.isEmpty()) {
+            updateHistory()
+        }
+        val btnClearHistory = findViewById<Button>(R.id.btn_clear_history)
+        btnClearHistory.setOnClickListener {
+            historyManager.clearHistory()
+            updateHistory()
+        }
         btnRetry.setOnClickListener {
             loadTasks(lastQuery)
         }
@@ -98,10 +146,12 @@ class SearchActivity : AppCompatActivity() {
         clearButton.setOnClickListener {
             searchView.setQuery("", false)
             hideKeyboard(editText)
+            showHistory()
         }
         searchView.isIconified = false
         editText?.requestFocus()
         showKeyboard(editText)
+
     }
 
 
@@ -125,6 +175,8 @@ class SearchActivity : AppCompatActivity() {
     }
     private fun loadTasks(query: String) {
         lastQuery = query
+        progressBar.visibility = View.VISIBLE
+        findViewById<Button>(R.id.btn_clear_history).visibility = View.GONE
         lifecycleScope.launch {
             try {
                 val token = "Bearer 3be63e10b064388024c6aee5e4a70a78a18e6aef"
@@ -138,25 +190,35 @@ class SearchActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 showErrorPlaceholder()
-            }
+            } finally {
+            progressBar.visibility = View.GONE
+                hideHistory()
         }
+        }
+
     }
     private fun showEmptyPlaceholder() {
         recyclerView.visibility = View.GONE
         placeholderEmpty.visibility = View.VISIBLE
         placeholderError.visibility = View.GONE
+        historyRecyclerView.visibility = View.GONE
+        findViewById<Button>(R.id.btn_clear_history).visibility = View.GONE
     }
 
     private fun showErrorPlaceholder() {
         recyclerView.visibility = View.GONE
         placeholderEmpty.visibility = View.GONE
         placeholderError.visibility = View.VISIBLE
+        historyRecyclerView.visibility = View.GONE
+        findViewById<Button>(R.id.btn_clear_history).visibility = View.GONE
     }
 
     private fun showResults(todoistTasks: List<TodoistTask>) {
         recyclerView.visibility = View.VISIBLE
         placeholderEmpty.visibility = View.GONE
         placeholderError.visibility = View.GONE
+        historyRecyclerView.visibility = View.GONE
+        findViewById<Button>(R.id.btn_clear_history).visibility = View.GONE
 
         val converted = todoistTasks.map {
             Task(
@@ -176,6 +238,51 @@ class SearchActivity : AppCompatActivity() {
 
         adapter.updateTasks(converted)
     }
+  /*  private fun showHistory() {
+        val history = historyManager.getHistory()
+        if (history.isNotEmpty()) {
+            historyAdapter.update(history)
+            historyRecyclerView.visibility = View.VISIBLE
+            findViewById<Button>(R.id.btn_clear_history).visibility = View.VISIBLE
 
+            // СКРЫВАЕМ остальное:
+            recyclerView.visibility = View.GONE
+            placeholderEmpty.visibility = View.GONE
+            placeholderError.visibility = View.GONE
+        }
+    }*/
+
+
+    private fun hideHistory() {
+        historyRecyclerView.visibility = View.GONE
+        findViewById<Button>(R.id.btn_clear_history).visibility = View.GONE
+    }
+    private fun showHistory() {
+        val history = historyManager.getHistory()
+        if (history.isNotEmpty()) {
+            historyAdapter.update(history)
+            historyRecyclerView.visibility = View.VISIBLE
+            findViewById<Button>(R.id.btn_clear_history).visibility = View.VISIBLE
+            recyclerView.visibility = View.GONE
+            placeholderEmpty.visibility = View.GONE
+            placeholderError.visibility = View.GONE
+        }
+    }
+
+
+    private fun updateHistory() {
+        val history = historyManager.getHistory()
+        if (history.isNotEmpty()) {
+            historyAdapter.update(history)
+            historyRecyclerView.visibility = View.VISIBLE
+            findViewById<Button>(R.id.btn_clear_history).visibility = View.VISIBLE
+        } else {
+            historyRecyclerView.visibility = View.GONE
+            findViewById<Button>(R.id.btn_clear_history).visibility = View.GONE
+        }
+    }
 
 }
+
+
+
