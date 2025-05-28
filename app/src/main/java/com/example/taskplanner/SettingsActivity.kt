@@ -26,6 +26,11 @@ class SettingsActivity : AppCompatActivity() {
         val logoutTextView = findViewById<TextView>(R.id.tv_logout)
         logoutTextView.paintFlags = logoutTextView.paintFlags or Paint.UNDERLINE_TEXT_FLAG
 
+        val accountTextView = findViewById<TextView>(R.id.tv_account)
+        val userPrefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+        val userEmail = userPrefs.getString("user_email", "Неизвестно")
+        accountTextView.text = "Аккаунт: $userEmail"
+
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
 
@@ -37,13 +42,20 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         btnLogout.setOnClickListener {
-            // TODO: Реализация выхода
+            val prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+            prefs.edit().clear().apply()
+
+            val intent = Intent(this, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
         }
     }
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
                 startActivity(Intent(this, MainActivity::class.java))  // Действие при нажатии на стрелку
+                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right)
                 true
             }
             else -> super.onOptionsItemSelected(item)

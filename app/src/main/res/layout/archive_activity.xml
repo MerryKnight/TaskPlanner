@@ -16,6 +16,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            app:titleTextAppearance="@style/Toolbar.TitleText"
             android:navigationIcon="@android:drawable/ic_menu_sort_by_size"
             android:theme="@style/Theme.Material3.Light.NoActionBar" />
 
@@ -26,6 +27,14 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:padding="8dp" />
+        <Button
+            android:id="@+id/btn_clear_archive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:backgroundTint="@color/color_primary"
+            android:text="Очистить архив"
+            android:textColor="@android:color/white" />
 
     </LinearLayout>
 

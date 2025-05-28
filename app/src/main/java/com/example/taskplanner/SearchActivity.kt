@@ -1,23 +1,25 @@
 package com.example.taskplanner
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
-import kotlinx.coroutines.launch
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
+import kotlinx.coroutines.launch
+
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
-import android.widget.ImageView
+
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.appcompat.widget.Toolbar
-import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.DrawableCompat
+
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -41,6 +43,7 @@ class SearchActivity : AppCompatActivity() {
     private lateinit var historyManager: SearchHistoryManager
     private var searchJob: kotlinx.coroutines.Job? = null
     private lateinit var progressBar: ProgressBar
+    private lateinit var token: String
 
     companion object {
         private const val SEARCH_QUERY_KEY = "search_query"
@@ -53,9 +56,41 @@ class SearchActivity : AppCompatActivity() {
         searchView = findViewById(R.id.search_view)
         clearButton = findViewById(R.id.btn_clear)
         recyclerView = findViewById(R.id.rv_search_results)
-        adapter = TaskAdapter(emptyList()) { task ->
-            // Обработка клика по задаче (если нужно)
-        }
+        adapter = TaskAdapter(
+            tasks = emptyList(),
+            isArchive = false,
+            isTrash = false,
+            onItemClick = { task ->
+                val intent = Intent(this, TaskDetailsActivity::class.java)
+                intent.putExtra("task_title", task.title)
+                intent.putExtra("task_description", task.description)
+                intent.putExtra("task_date", task.reminderDate)
+                intent.putExtra("task_category", task.categoryId)
+                startActivity(intent)
+            },
+            onItemLongClick = { task ->
+                AlertDialog.Builder(this)
+                    .setTitle("Удалить задачу?")
+                    .setMessage("Вы уверены, что хотите удалить эту задачу?")
+                    .setPositiveButton("Да") { _, _ ->
+                        task.taskId?.let { id ->
+                            Log.d("RRR", id.toString())
+                            deleteTask(id)
+                        } ?: run {
+                            Toast.makeText(this, "Ошибка: ID задачи отсутствует", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .setNegativeButton("Нет", null)
+                    .show()
+            },
+            onArchiveClick = { task ->
+                task.taskId?.let { id ->
+                    archiveTask(id)
+                } ?: Toast.makeText(this, "Ошибка: ID задачи отсутствует", Toast.LENGTH_SHORT).show()
+            }
+        )
+        token = getSharedPreferences("user_prefs", Context.MODE_PRIVATE).getString("auth_token", null).toString()
+
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
 
@@ -154,7 +189,49 @@ class SearchActivity : AppCompatActivity() {
 
     }
 
-
+    private fun deleteTask(taskId: Int) {
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitClient.apiService.deleteTask(taskId)
+                if (response.isSuccessful) {
+                    Toast.makeText(this@SearchActivity, "Задача удалена", Toast.LENGTH_SHORT).show()
+                    TaskLoader.loadTasks(this@SearchActivity,
+                        showDeleted = false,
+                        showArchived = false,
+                        token = token) { tasks ->
+                        adapter.updateTasks(tasks)
+                    }  // обновить список
+                } else {
+                    Toast.makeText(this@SearchActivity, "Ошибка удаления", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@SearchActivity, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    private fun archiveTask(taskId: Int) {
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitClient.apiService.archiveTask(taskId)
+                if (response.isSuccessful) {
+                    Toast.makeText(this@SearchActivity, "Задача архивирована", Toast.LENGTH_SHORT).show()
+                    // Загрузить обновленные задачи
+                    TaskLoader.loadTasks(
+                        this@SearchActivity,
+                        showDeleted = false,
+                        showArchived = false,
+                        token = token
+                    ) { tasks ->
+                        adapter.updateTasks(tasks)
+                    }
+                } else {
+                    Toast.makeText(this@SearchActivity, "Ошибка архивации", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@SearchActivity, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(SEARCH_QUERY_KEY, searchView.query.toString())
         super.onSaveInstanceState(outState)
@@ -179,14 +256,13 @@ class SearchActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_clear_history).visibility = View.GONE
         lifecycleScope.launch {
             try {
-                val token = "Bearer 3be63e10b064388024c6aee5e4a70a78a18e6aef"
-                val tasks = RetrofitClient.api.getTasks(token)
-                val filtered = tasks.filter { it.content.contains(query, ignoreCase = true) }
 
-                if (filtered.isEmpty()) {
+                val result = RetrofitClient.apiService.searchTasks(token, query)
+
+                if (result.body() == null) {
                     showEmptyPlaceholder()
                 } else {
-                    showResults(filtered)
+                    result.body()?.let { showResults(it) }
                 }
             } catch (e: Exception) {
                 showErrorPlaceholder()
@@ -213,45 +289,29 @@ class SearchActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_clear_history).visibility = View.GONE
     }
 
-    private fun showResults(todoistTasks: List<TodoistTask>) {
+    private fun showResults(task: List<Task>) {
         recyclerView.visibility = View.VISIBLE
         placeholderEmpty.visibility = View.GONE
         placeholderError.visibility = View.GONE
         historyRecyclerView.visibility = View.GONE
         findViewById<Button>(R.id.btn_clear_history).visibility = View.GONE
 
-        val converted = todoistTasks.map {
+        val converted = task.map {
             Task(
-                title = it.content,
-                description = "", // у Todoist задач нет описания, можно оставить пустым
-                reminderDate = it.due?.date?.let { dateStr ->
-                    // Преобразуем ISO 8601 в Date
-                    try {
-                        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
-                        parser.parse(dateStr)
-                    } catch (e: Exception) {
-                        null
-                    }
-                } ?: java.util.Date() // если даты нет — текущая
+                taskId = it.taskId,
+                isDeleted = it.isDeleted,
+                isArchived = it.isArchived,
+                categoryId = it.categoryId,
+                title = it.title,
+                description = it.description,
+                reminderDate = it.reminderDate
+
             )
         }
 
         adapter.updateTasks(converted)
+
     }
-  /*  private fun showHistory() {
-        val history = historyManager.getHistory()
-        if (history.isNotEmpty()) {
-            historyAdapter.update(history)
-            historyRecyclerView.visibility = View.VISIBLE
-            findViewById<Button>(R.id.btn_clear_history).visibility = View.VISIBLE
-
-            // СКРЫВАЕМ остальное:
-            recyclerView.visibility = View.GONE
-            placeholderEmpty.visibility = View.GONE
-            placeholderError.visibility = View.GONE
-        }
-    }*/
-
 
     private fun hideHistory() {
         historyRecyclerView.visibility = View.GONE
@@ -268,7 +328,6 @@ class SearchActivity : AppCompatActivity() {
             placeholderError.visibility = View.GONE
         }
     }
-
 
     private fun updateHistory() {
         val history = historyManager.getHistory()

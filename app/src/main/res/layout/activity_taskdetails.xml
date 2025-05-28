@@ -1,57 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:padding="16dp">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-    <LinearLayout
+    <!-- Toolbar вне ScrollView -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:layout_height="?attr/actionBarSize"
+        app:titleTextAppearance="@style/Toolbar.TitleText"
+        android:navigationIcon="@android:drawable/ic_menu_sort_by_size"
+        android:theme="@style/Theme.Material3.Light.NoActionBar" />
+
+    <!-- Контент прокручиваемый -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:padding="16dp">
 
-        <!-- Название -->
-        <TextView
-            android:id="@+id/tv_title"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Название задачи"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:orientation="vertical"
+            android:padding="8dp">
 
-        <!-- Описание -->
-        <TextView
-            android:id="@+id/tv_description"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Описание задачи"
-            android:layout_marginTop="16dp" />
+            <!-- Название -->
+            <TextView
+                android:id="@+id/tv_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Название задачи"
+                android:textSize="20sp"
+                android:textStyle="bold" />
 
-        <!-- Дата -->
-        <TextView
-            android:id="@+id/tv_date"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Дата: 01.01.2024"
-            android:layout_marginTop="16dp" />
+            <!-- Описание -->
+            <TextView
+                android:id="@+id/tv_description"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Описание задачи"
+                android:layout_marginTop="16dp" />
 
-        <!-- Категория -->
-        <TextView
-            android:id="@+id/tv_category"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Категория: Работа"
-            android:layout_marginTop="16dp" />
+            <!-- Дата -->
+            <TextView
+                android:id="@+id/tv_date"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Дата: 01.01.2024"
+                android:layout_marginTop="16dp" />
 
-        <!-- Кнопка для редактирования задачи -->
-        <Button
-            android:id="@+id/btn_edit_task"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Редактировать задачу"
-            android:layout_marginTop="24dp"
-            android:layout_gravity="center_horizontal" />
+            <!-- Категория -->
+            <TextView
+                android:id="@+id/tv_category"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Категория: Работа"
+                android:layout_marginTop="16dp" />
 
-    </LinearLayout>
-
-</ScrollView>
+            <!-- Кнопка редактирования -->
+            <Button
+                android:id="@+id/btn_edit_task"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Редактировать задачу"
+                android:layout_marginTop="24dp"
+                android:layout_gravity="center_horizontal" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
